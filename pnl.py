@@ -1,13 +1,13 @@
 import csv
 import sys
 from collections import defaultdict, deque
+from decimal import *
 
 # ASSUMPTIONS MADE
 # only one trade for a particular symbol at one time tick
 # csv always sorted by time (instructions kind of say this, unclear) 
 #   necessary or else my usage of deque is not right
-# can't trade for fractions of cent
-# csv always right: price: 2 degree of precision float, quantity: int
+# works with arbitrary precision
 
 class TradeManager():
     def __init__(self, store_trades=True, print_trades=False):
@@ -15,7 +15,7 @@ class TradeManager():
         self._closed_trades = []
         self._store_trades = store_trades
         self._print_trades = print_trades
-        self._pnl = 0.0
+        self._pnl = Decimal(0.0)
 
     def process_trade(self, trade):
         d = self._open_trades[trade.symbol]
@@ -35,12 +35,10 @@ class TradeManager():
         while len(d) > 0 and trade.quantity > 0:
             quant_traded = min(trade.quantity, d[0].quantity)
             
-            pnl = quant_traded * round(trade.price - d[0].price, 2)
+            pnl = quant_traded * (trade.price - d[0].price)
             # invert if we shorted
             if trade.buying:
                 pnl *= -1
-
-            pnl = round(pnl, 2)
             self._pnl += pnl
 
             ct = ClosedTrade(d[0].time, trade.time, trade.symbol,
@@ -69,7 +67,7 @@ class TradeManager():
             for tr in trade_reader:
                 buying = tr["SIDE"] == "B"
                 trade = Trade(tr["TIME"], tr["SYMBOL"], buying, 
-                        float(tr["PRICE"]), int(tr["QUANTITY"]))
+                        Decimal(tr["PRICE"]), Decimal(tr["QUANTITY"]))
                 
                 self.process_trade(trade)
 
@@ -105,7 +103,7 @@ class ClosedTrade():
         self.close_p = close_p
 
     def __str__(self):
-        s = "{},{},{},{},{:.2f},{},{},{:.2f},{:.2f}"
+        s = "{},{},{},{},{:.4f},{},{},{:.4f},{:.4f}"
         s = s.format(
                 self.open_t,
                 self.close_t,
